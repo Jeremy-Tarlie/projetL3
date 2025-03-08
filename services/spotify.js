@@ -34,35 +34,127 @@ async function getNewReleases() {
 // Fonction pour obtenir les artistes d'une playlist spécifique
 async function getArtists() {
   const token = await getAccessToken(); // Obtention du token d'accès
-  const response = await fetch("https://api.spotify.com/v1/playlists/4eMwMyoiGx9GtDpDaRz3qA", {
-    headers: { Authorization: `Bearer ${token}` }, // Ajout du token dans les en-têtes de la requête
-  });
+  const response = await fetch(
+    "https://api.spotify.com/v1/artists/0TnOYISbd1XYRBk9myaseg/top-tracks",
+    {
+      headers: { Authorization: `Bearer ${token}` }, // Ajout du token dans les en-têtes de la requête
+    }
+  );
 
   const data = await response.json(); // Conversion de la réponse en JSON
-  return data.tracks.items; // Retourne la liste des pistes de la playlist
+  console.log(data)
+  return data.tracks; // Retourne la liste des pistes de la playlist
 }
 
 // Fonction pour obtenir des recommandations d'albums
 async function getRecommandations() {
   const token = await getAccessToken(); // Obtention du token d'accès
-  const response = await fetch("https://api.spotify.com/v1/recommendations", {
-    headers: { Authorization: `Bearer ${token}` }, // Ajout du token dans les en-têtes de la requête
-  });
+  const maxAttempts = 5; // Nombre maximum de tentatives
+  let attempts = 0;
+  let undergroundArtists = [];
 
-  const data = await response.json(); // Conversion de la réponse en JSON
-  return data.albums.items; // Retourne la liste des albums recommandés
+  while (attempts < maxAttempts && undergroundArtists.length === 0) {
+    // Choisir une lettre aléatoire pour rechercher des artistes peu connus
+    const randomLetter = String.fromCharCode(
+      97 + Math.floor(Math.random() * 26)
+    ); // Lettre entre 'a' et 'z'
+
+    const response = await fetch(
+      `https://api.spotify.com/v1/search?q=${randomLetter}&type=artist&limit=50`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    const data = await response.json(); // Conversion en JSON
+
+    console.log(data)
+
+    if (data.artists && data.artists.items) {
+      // Filtrer les artistes avec une faible popularité (< 30 sur 100)
+      undergroundArtists = data.artists.items.filter(
+        (artist) => artist.popularity < 30
+      );
+    }
+
+    attempts++;
+  }
+
+  return undergroundArtists.slice(0, 10); // Retourner seulement 10 artistes peu connus
 }
 
-// Fonction pour obtenir les playlists populaires
+// Fonction pour obtenir des albums populaires
 async function getPlaylists() {
   const token = await getAccessToken(); // Obtention du token d'accès
-  const response = await fetch("https://api.spotify.com/v1/browse/categories", {
-    headers: { Authorization: `Bearer ${token}` }, // Ajout du token dans les en-têtes de la requête
-  });
+  const maxAttempts = 5; // Nombre maximum de tentatives
+  let attempts = 0;
+  let popularAlbums = [];
 
-  const data = await response.json(); // Conversion de la réponse en JSON
-  return data.albums.items; // Retourne la liste des albums populaires
+  while (attempts < maxAttempts && popularAlbums.length === 0) {
+    // Choisir une lettre aléatoire pour rechercher des albums populaires
+    const randomLetter = String.fromCharCode(
+      97 + Math.floor(Math.random() * 26)
+    ); // Lettre entre 'a' et 'z'
+
+    const response = await fetch(
+      `https://api.spotify.com/v1/search?q=${randomLetter}&type=album&limit=50`, // Recherche des albums
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    const data = await response.json(); // Conversion en JSON
+
+    if (data.albums && data.albums.items) {
+      popularAlbums = data.albums.items;
+    }
+
+    attempts++;
+  }
+
+  return popularAlbums.slice(0, 10); // Retourner seulement les 10 albums les plus populaires
+}
+
+// Fonction pour obtenir des recommandations d'artistes populaires
+async function getPopularArtists() {
+  const token = await getAccessToken(); // Obtention du token d'accès
+  const maxAttempts = 5; // Nombre maximum de tentatives
+  let attempts = 0;
+  let popularArtists = [];
+
+  while (attempts < maxAttempts && popularArtists.length === 0) {
+    // Choisir une lettre aléatoire pour rechercher des artistes populaires
+    const randomLetter = String.fromCharCode(
+      97 + Math.floor(Math.random() * 26)
+    ); // Lettre entre 'a' et 'z'
+
+    const response = await fetch(
+      `https://api.spotify.com/v1/search?q=${randomLetter}&type=artist&limit=50`, // Recherche des artistes
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    const data = await response.json(); // Conversion en JSON
+
+    if (data.artists && data.artists.items) {
+      // Filtrer les artistes avec une forte popularité (> 70 sur 100)
+      popularArtists = data.artists.items.filter(
+        (artist) => artist.popularity > 70
+      );
+    }
+
+    attempts++;
+  }
+
+  return popularArtists.slice(0, 10); // Retourner seulement les 10 artistes les plus populaires
 }
 
 // Exportation des fonctions pour les utiliser dans d'autres fichiers
-export { getNewReleases, getArtists, getRecommandations, getPlaylists };
+export {
+  getNewReleases,
+  getArtists,
+  getRecommandations,
+  getPlaylists,
+  getPopularArtists,
+};

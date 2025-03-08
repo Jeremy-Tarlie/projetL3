@@ -1,134 +1,244 @@
 <template>
-  <div class="player-container" v-if="currentTrack">
-    <!-- Informations sur la piste en cours -->
-    <div class="player-info">
-      <div class="track-info">
-        <h3>{{ currentTrack.name }}</h3>
-        <p>{{ artistName }}</p>
+  <div class="artist-container" v-if="currentArtist">
+    <div class="artist-header">
+      <img :src="artistImage" :alt="currentArtist.name" class="artist-cover" />
+      <div class="artist-info">
+        <h2>{{ currentArtist.name }}</h2>
+        <p>{{ currentArtist.followers.total }} followers</p>
+        <p>{{ currentArtist.genres.join(', ') }}</p>
       </div>
     </div>
-    
-    <!-- Contrôles du lecteur -->
-    <div class="player-controls">
-      <!-- Intégration du lecteur Spotify -->
-      <iframe 
-        :src="spotifyEmbedUrl" 
-        width="100%" 
-        height="152" 
-        frameborder="0" 
-        allowfullscreen 
-        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture">
-      </iframe>
-      
-      <!-- Bouton de retour à l'accueil -->
-      <div class="control-buttons">
-        <router-link to="/" class="back-btn">Retour à l'accueil</router-link>
-      </div>
+
+    <div class="artist-tracks">
+      <h3>Titres</h3>
+      <ul class="tracks-list">
+        <li v-for="(track, index) in artistTracks" :key="track.id">
+          <div class="track-header" @click="toggleTrack(index)">
+            <span>{{ track.track_number }}. {{ track.name }}</span>
+            <span v-if="openTrack === index">🔼</span>
+            <span v-else>🔽</span>
+          </div>
+
+          <transition name="slide">
+            <div v-if="openTrack === index" class="track-details">
+              <p>⏳ Durée : {{ formatDuration(track.duration_ms) }}</p>
+              <div class="track-buttons">
+                <button @click="playTrack(track)" class="play-button">
+                  ▶️ Écouter avec le Player
+                </button>
+                <button @click="new Audio(track.preview_url).play()" class="preview-button" v-if="track.preview_url">
+                  🔊 Aperçu rapide
+                </button>
+              </div>
+              <button @click="likeTrack(track)" class="like-button">
+                ❤️ Ajouter aux favoris
+              </button>
+            </div>
+          </transition>
+        </li>
+      </ul>
     </div>
   </div>
-  <div v-else class="no-track">
-    <!-- Message affiché si aucune piste n'est sélectionnée -->
-    <p>Aucune piste sélectionnée</p>
-    <router-link to="/" class="back-btn">Retour à l'accueil</router-link>
+  <div v-else class="loading">
+    Chargement de l'artiste...
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
-import { useMusicStore } from '@/store/musicStore';
+import { ref, computed, onMounted } from "vue";
+import { useMusicStore } from "@/store/musicStore";
+import { useRoute, useRouter } from "vue-router";
 
-const musicStore = useMusicStore(); // Utilisation du store pour gérer la musique
+const musicStore = useMusicStore();
+const route = useRoute();
+const router = useRouter();
+const openTrack = ref(null); // Référence pour suivre la piste ouverte
 
-const currentTrack = computed(() => musicStore.currentTrack); // Piste actuelle
-const albumImage = computed(() => {
-  if (currentTrack.value && currentTrack.value.album && currentTrack.value.album.images && currentTrack.value.album.images.length > 0) {
-    return currentTrack.value.album.images[0].url; // Image de l'album
+onMounted(async () => {
+  const artistId = route.params.id;
+  if (artistId) {
+    await musicStore.fetchArtist(artistId); // Récupérer les détails de l'artiste
+    await musicStore.fetchArtistTracks(artistId); // Récupérer les pistes de l'artiste
+  }
+});
+
+const currentArtist = computed(() => musicStore.currentArtist); // Artiste actuel
+const artistTracks = computed(() => musicStore.artistTracks); // Pistes de l'artiste
+const artistImage = computed(() => {
+  if (currentArtist.value && currentArtist.value.images && currentArtist.value.images.length > 0) {
+    return currentArtist.value.images[0].url; // Image de l'artiste
   }
   return ''; // Image par défaut ou vide
 });
 
-const artistName = computed(() => {
-  if (currentTrack.value && currentTrack.value.artists && currentTrack.value.artists.length > 0) {
-    return currentTrack.value.artists[0].name; // Nom de l'artiste
-  }
-  return 'Artiste inconnu';
-});
+const toggleTrack = (index) => {
+  openTrack.value = openTrack.value === index ? null : index; // Ouvrir/fermer la piste
+};
 
-// Générer l'URL d'intégration Spotify pour la piste actuelle
-const spotifyEmbedUrl = computed(() => {
-  if (currentTrack.value && currentTrack.value.id) {
-    return `https://open.spotify.com/embed/track/${currentTrack.value.id}`;
+const formatDuration = (ms) => {
+  const minutes = Math.floor(ms / 60000);
+  const seconds = ((ms % 60000) / 1000).toFixed(0);
+  return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`; // Formater la durée en minutes:secondes
+};
+
+// Fonction pour jouer une piste
+const playTrack = (track) => {
+  if (track.href) {
+    musicStore.setCurrentTrack(track); // Définir la piste actuelle
+    router.push('/player'); // Naviguer vers le lecteur
+  } else {
+    alert("❌ Aucun extrait disponible !"); // Alerter si aucun extrait n'est disponible
   }
-  return '';
-});
+};
+
+// Fonction pour liker une piste
+const likeTrack = (track) => {
+  let likedTracks = JSON.parse(localStorage.getItem('likedTracks')) || [];
+  likedTracks.push(track);
+  localStorage.setItem('likedTracks', JSON.stringify(likedTracks));
+  alert("👍 Piste likée !");
+};
 </script>
 
 <style scoped>
-.player-container {
-  background: rgba(30, 30, 46, 0.9);
+.artist-container {
+  background: linear-gradient(to bottom, #1e1e2e, #15151e);
+  color: white;
+  padding: 2rem;
+  min-height: 100vh;
+}
+
+.artist-header {
+  display: flex;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.artist-cover {
+  width: 250px;
+  height: 250px;
+  object-fit: cover;
   border-radius: 10px;
-  padding: 1.5rem;
-  max-width: 600px;
-  margin: 10rem auto;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 }
 
-.player-info {
-  display: flex;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
-
-.player-cover {
-  width: 100px;
-  height: 100px;
-  border-radius: 8px;
-  object-fit: cover;
-  margin-right: 1rem;
-}
-
-.track-info h3 {
-  margin: 0 0 0.5rem 0;
+.artist-info h2 {
+  margin-top: 0;
+  font-size: 2rem;
   color: white;
 }
 
-.track-info p {
-  margin: 0;
+.artist-info p {
   color: #a65fdf;
+  margin: 0.5rem 0;
 }
 
-.player-controls {
+.artist-tracks {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 1.5rem;
+}
+
+.tracks-list {
+  list-style: none;
+  padding: 0;
+}
+
+.track-header {
   display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  justify-content: space-between;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  margin-bottom: 0.5rem;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.2s;
 }
 
-.control-buttons {
+.track-header:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.track-details {
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 0 0 5px 5px;
+  margin-top: -0.5rem;
+  margin-bottom: 1rem;
+}
+
+.track-buttons {
   display: flex;
-  justify-content: center;
   gap: 1rem;
-  align-items: center;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 
-.no-track {
+.play-button,
+.preview-button,
+.like-button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.play-button {
+  background: #a65fdf;
+  color: white;
+}
+
+.preview-button {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.like-button {
+  background: #ff4081;
+  color: white;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.play-button:hover,
+.preview-button:hover,
+.like-button:hover {
+  opacity: 0.9;
+  transform: scale(1.05);
+}
+
+.slide-enter-active,
+.slide-leave-active {
+  transition: all 0.3s;
+}
+
+.slide-enter-from,
+.slide-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.loading {
   text-align: center;
   padding: 2rem;
   color: white;
 }
 
-.back-btn {
-  display: inline-block;
-  margin-top: 1rem;
-  padding: 0.5rem 1rem;
-  background: #a65fdf;
-  color: white;
-  text-decoration: none;
-  border-radius: 5px;
-  transition: all 0.2s;
-}
-
-.back-btn:hover {
-  opacity: 0.9;
-  transform: scale(1.05);
+@media (max-width: 768px) {
+  .artist-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  
+  .artist-cover {
+    width: 200px;
+    height: 200px;
+  }
+  
+  .track-buttons {
+    flex-direction: column;
+  }
 }
 </style>

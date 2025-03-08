@@ -77,7 +77,6 @@ const formatDuration = (ms) => {
 
 // Fonction pour jouer une piste
 const playTrack = (track) => {
-  console.log(track);
   if (track.href) {
     musicStore.setCurrentTrack(track); // Définir la piste actuelle
     router.push('/player'); // Naviguer vers le lecteur

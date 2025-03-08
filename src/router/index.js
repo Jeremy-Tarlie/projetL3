@@ -12,7 +12,7 @@ const routes = [
   { path: '/search', component: Search },
   { path: '/playlist/', component: Playlist },
   { path: '/album/:id', component: Album },
-  { path: '/artist/', component: Artist },
+  { path: '/artist/:id', component: Artist },
   { path: '/player', component: Player },
   { path: '/profile', component: Profile }
 ];
